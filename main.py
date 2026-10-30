@@ -71,13 +71,18 @@ def anonymize_table_definition(input_file, output_file, column_name_pattern, col
         with open(input_file, "r", encoding=encoding, errors='replace') as infile:
             table_definition = infile.read()
 
-        # Anonymize column names using regex
-        column_count = 1
+        # Anonymize column names using regex. Each distinct name gets one
+        # replacement, reused at every occurrence: a name usually appears
+        # again outside its definition (an index, a foreign key), and the
+        # old per match counter renamed those later occurrences to a
+        # different column, breaking the definition it was meant to hide
+        # in plain sight.
+        replacements = {}
         def replace_column_name(match):
-            nonlocal column_count  # Allow modification of the outer scope's variable
-            replacement = f"{column_prefix}{column_count}"
-            column_count += 1
-            return replacement
+            key = match.group(0).lower()
+            if key not in replacements:
+                replacements[key] = f"{column_prefix}{len(replacements) + 1}"
+            return replacements[key]
 
         anonymized_definition = re.sub(column_name_pattern, replace_column_name, table_definition, flags=re.IGNORECASE)  # Consider case-insensitive matching
 
