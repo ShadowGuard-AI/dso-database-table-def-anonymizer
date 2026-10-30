@@ -1,3 +1,5 @@
+![Banner](banner.png)
+
 # dso-database-table-def-anonymizer
 Anonymizes database table definitions by replacing sensitive column names with generic ones (e.g., 'customer_name' becomes 'column_1'). Useful for sharing database schemas without revealing sensitive data structures. - Focused on Tools for sanitizing and obfuscating sensitive data within text files and structured data formats
 
