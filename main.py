@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 import re
 import chardet  # For character encoding detection
@@ -27,7 +28,7 @@ def setup_argparse():
     )
     parser.add_argument(
         "--column_name_pattern",
-        default=r'\b(\w+_name|\w+_address|\w+_phone|\w+_email|\w+_id)\b',
+        default=r'\b(\w+_name|\w+_address|\w+_phone|\w+_email|\w+_id|\w+_number|\w+_hash|\w+(?:Name|Email|Phone|Address)|ssn|credit_card|date_of_birth|password|name|email|phone)\b',
         help="Regex pattern to identify sensitive column names.  Defaults to common patterns.",
     )
     parser.add_argument(
@@ -55,6 +56,12 @@ def anonymize_table_definition(input_file, output_file, column_name_pattern, col
         column_prefix (str): Prefix for anonymized column names.
         encoding (str): Character encoding of the input and output files.
     """
+
+    # Refuse in place output: resolved equality covers the same string,
+    # a ./ alias, and a symlink pointing at the input.
+    if os.path.realpath(input_file) == os.path.realpath(output_file):
+        logging.error("Error: Output file resolves to the input file; refusing to overwrite the input.")
+        sys.exit(1)
 
     try:
         # Determine encoding if 'auto' is specified
@@ -85,6 +92,12 @@ def anonymize_table_definition(input_file, output_file, column_name_pattern, col
             return replacements[key]
 
         anonymized_definition = re.sub(column_name_pattern, replace_column_name, table_definition, flags=re.IGNORECASE)  # Consider case-insensitive matching
+
+        # A run that replaced nothing has not anonymized anything: fail
+        # without writing output or claiming success.
+        if not replacements:
+            logging.error("Error: No column names matched the pattern; nothing was anonymized.")
+            sys.exit(1)
 
         # Write the anonymized definition to the output file
         with open(output_file, "w", encoding=encoding) as outfile:
