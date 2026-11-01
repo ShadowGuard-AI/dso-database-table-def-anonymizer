@@ -74,7 +74,10 @@ def anonymize_table_definition(input_file, output_file, column_name_pattern, col
                 if encoding is None:
                     raise ValueError("Unable to automatically detect file encoding.")
 
-        # Read the input file
+        # errors='replace' means bytes that do not decode become the
+        # replacement character in the output rather than an error, so a
+        # file in the wrong encoding is rewritten with silent damage in
+        # places that have nothing to do with column names.
         with open(input_file, "r", encoding=encoding, errors='replace') as infile:
             table_definition = infile.read()
 
@@ -91,6 +94,16 @@ def anonymize_table_definition(input_file, output_file, column_name_pattern, col
                 replacements[key] = f"{column_prefix}{len(replacements) + 1}"
             return replacements[key]
 
+        # Nothing parses the SQL: the substitution runs over the raw text
+        # of the whole file. I verified both consequences. A keyword inside
+        # a string literal is replaced like a column name, so a default of
+        # 'contact email here' comes out as 'contact column_2 here', a data
+        # change wearing a schema change's clothes; and because matching
+        # is case-insensitive with the key lowercased below, user_id and
+        # User_ID are unified into one replacement. Numbering follows
+        # first appearance in the text, not the table's column order alone:
+        # a name first met in a comment or an index numbers before a name
+        # first met in its own definition.
         anonymized_definition = re.sub(column_name_pattern, replace_column_name, table_definition, flags=re.IGNORECASE)  # Consider case-insensitive matching
 
         # A run that replaced nothing has not anonymized anything: fail
